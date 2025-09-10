@@ -1,0 +1,42 @@
+version: '3.8'
+
+volumes:
+  envoy-logs:
+
+networks:
+  simple-producer_logging-net:
+    external: true
+
+services:
+  app:
+    build: .
+    container_name: simple-server-app
+    networks:
+      - simple-producer_logging-net
+
+  envoy:
+    image: envoyproxy/envoy:v1.28.0
+    container_name: envoy-sidecar
+    networks:
+      - simple-producer_logging-net
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml
+      - envoy-logs:/var/log/envoy:z # Mount the shared volume
+    user: "0:0"
+    ports:
+      - "8080:8080" # Expose Envoy's listener port to the host
+      - "9901:9901" # Expose Envoy's admin port
+    depends_on:
+      - app
+
+  fluent-bit:
+    image: fluent/fluent-bit:2.2
+    container_name: fluent-bit-sidecar
+    networks:
+      - simple-producer_logging-net
+    volumes:
+      - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+      # Mount the shared volume as read-only
+      - envoy-logs:/var/log/envoy:ro
+    depends_on:
+      - envoy

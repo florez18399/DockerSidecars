@@ -1,0 +1,27 @@
+# Node.js dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Build artifacts
+/build
+/dist
+
+# Environment variables
+.env
+.env.local
+
+# Optional npm cache directory
+.npm/
+
+# Optional ESLint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# IDE-specific files (e.g., VS Code)
+.vscode/
