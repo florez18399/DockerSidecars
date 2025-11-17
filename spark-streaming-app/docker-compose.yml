@@ -1,0 +1,22 @@
+version: '3.8'
+
+networks:
+  simple-producer_logging-net:
+    external: true
+
+services:
+  spark-zone-1:
+    build: .
+    container_name: spark-zone-1
+    hostname: spark-zone-1
+    # 1. Vive SÓLO en la red de Brasil
+    networks:
+      - simple-producer_logging-net
+    # 2. Monta la config
+    volumes:
+      - ./config:/opt/spark/conf
+    # 3. Pasa la variable de entorno
+    environment:
+      - ZONA_ID=zone-1
+    command: ["spark-submit", "--master", "local[*]", "/app/stream-writer.py"]
+  

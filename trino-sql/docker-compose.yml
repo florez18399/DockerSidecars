@@ -1,0 +1,72 @@
+services:
+  metastore-db:
+    image: postgres:14
+    container_name: metastore-db
+    hostname: metastore-db
+    networks:
+      - simple-producer_logging-net
+      - trino-net
+    environment:
+      - POSTGRES_DB=metastore        
+      - POSTGRES_USER=hive
+      - POSTGRES_PASSWORD=hivepass
+    volumes:
+      - metastore-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hive -d metastore"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  hive-metastore:
+    image: apache/hive:4.1.0
+    container_name: hive-metastore
+    hostname: hive-metastore
+    networks:
+      - simple-producer_logging-net
+      - trino-net
+    ports:
+      - "9083:9083"
+    environment:
+      SERVICE_NAME: metastore
+      DB_DRIVER: postgres
+    volumes:
+      - ./hive-config/hive-site.xml:/opt/hive/conf/hive-site.xml:ro
+      - ./hive-drivers/postgresql-42.6.0.jar:/opt/hive/lib/postgresql-42.6.0.jar:ro
+      - ./hive-drivers/postgresql-42.6.0.jar:/usr/lib/hive/lib/postgresql-42.6.0.jar:ro
+      - ./init-hive.sh:/opt/hive/init-hive.sh:ro
+    entrypoint: []
+    command: ["bash", "/opt/hive/init-hive.sh"]
+    depends_on:
+      metastore-db:
+        condition: service_healthy
+
+  trino:
+    image: trinodb/trino:448 # Usamos una versión reciente
+    container_name: trino
+    hostname: trino
+    user: "0:0"
+    networks:
+      - simple-producer_logging-net
+      - trino-net
+    ports:
+      - "8080:8080" # UI de Trino y puerto de la API
+    volumes:
+      - ./trino-config:/etc/trino:ro
+      - ./hadoop-config:/opt/hadoop-config:ro
+      - trino-data:/var/trino/data
+    depends_on:
+      - hive-metastore
+
+volumes:
+  metastore-pg-data:
+    driver: local
+  trino-data:
+    driver: local
+
+networks:
+  trino-net:
+    driver: bridge
+
+  simple-producer_logging-net:
+    external: true

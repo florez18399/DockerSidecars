@@ -1,0 +1,43 @@
+<configuration>
+  <property>
+    <name>dfs.replication</name>
+    <value>3</value>
+  </property>
+
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file:///data/namenode</value>
+  </property>
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file:///data/datanode</value>
+  </property>
+  
+  <property>
+    <name>net.topology.script.file.name</name>
+    <value>/opt/hadoop/etc/hadoop/topology.sh</value>
+  </property>
+  <property>
+    <name>dfs.namenode.topology.resolution.use.client.hostname</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>dfs.namenode.rpc-bind-host</name>
+    <value>0.0.0.0</value>
+    <description>
+        Le dice al NameNode que escuche en todas las interfaces de red (IPs) 
+        disponibles dentro del contenedor, no solo en la primera.
+    </description>
+  </property>
+
+  <property>
+    <name>dfs.datanode.use.datanode.hostname</name>
+    <value>true</value>
+  </property>
+
+  <property>
+    <name>dfs.client.use.datanode.hostname</name>
+    <value>true</value>
+  </property>
+</configuration>

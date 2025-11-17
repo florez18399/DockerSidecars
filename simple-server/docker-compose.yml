@@ -15,19 +15,24 @@ services:
       - simple-producer_logging-net
 
   envoy:
-    image: envoyproxy/envoy:v1.28.0
+    image: envoyproxy/envoy:v1.35.3
     container_name: envoy-sidecar
     networks:
       - simple-producer_logging-net
     volumes:
       - ./envoy.yaml:/etc/envoy/envoy.yaml
-      - envoy-logs:/var/log/envoy:z # Mount the shared volume
+      - envoy-logs:/var/log/envoy:z 
     user: "0:0"
     ports:
-      - "8080:8080" # Expose Envoy's listener port to the host
-      - "9901:9901" # Expose Envoy's admin port
+      - "8081:8080"
+      - "9902:9901"
     depends_on:
       - app
+    environment:
+      - ENVOY_UID=0
+      - ENVOY_GID=0
+      - SERVICE_NAME=products-api-v1
+      - INSTANCE_ID=123
 
   fluent-bit:
     image: fluent/fluent-bit:2.2
