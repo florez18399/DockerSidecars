@@ -1,0 +1,29 @@
+version: '3.8'
+
+networks:
+  zone_net:
+    external: true
+    name: ${ZONE_NETWORK_NAME}
+  hdfs-net:
+    external: true
+    name: hdfs-backbone
+
+volumes:
+  datanode_vol:
+    name: ${ZONE_ID}-datanode-vol
+
+
+services:
+  datanode:
+    image: hadoop-base:3.2.1
+    container_name: ${ZONE_ID}-datanode
+    hostname: ${ZONE_ID}-datanode
+    networks:
+      - zone_net 
+      - hdfs-net 
+    volumes:
+      - datanode_vol:/data/datanode
+      - ../../hadoop-config:/etc/hadoop/custom
+    environment:
+      - HADOOP_CONF_DIR=/etc/hadoop/custom
+    command: ["bash", "-c", "/etc/init.d/ssh start && hdfs datanode"]

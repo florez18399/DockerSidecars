@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
+const router = express.Router();
 
 // Middleware para parsear JSON en el request body
 app.use(express.json());
@@ -22,15 +23,14 @@ const simulateLatency = (req, res, next) => {
 };
 
 // --- Rutas de la API ---
-
 // 1. GET / (Ruta base)
-app.get('/', (req, res) => {
+router.get('/', (req, res) => {
   res.send('Welcome to the Mock Product API!');
 });
 
 // 2. GET /products (Obtener todos los productos)
 //    Prueba con query parameters: /products?category=Electronics&minPrice=50&maxPrice=1600
-app.get('/products', simulateLatency, (req, res) => {
+router.get('/products', simulateLatency, (req, res) => {
   const { category, minPrice, maxPrice } = req.query;
   let results = [...mockProducts]; // Copiamos para no modificar el original
 
@@ -70,7 +70,7 @@ app.get('/products', simulateLatency, (req, res) => {
 });
 
 // 3. GET /products/:id (Obtener un producto por ID)
-app.get('/products/:id', simulateLatency, (req, res) => {
+router.get('/products/:id', simulateLatency, (req, res) => {
   const productId = parseInt(req.params.id, 10);
   const product = mockProducts.find(p => p.id === productId);
 
@@ -85,7 +85,7 @@ app.get('/products/:id', simulateLatency, (req, res) => {
 
 // 4. POST /products (Crear un nuevo producto)
 //    Usa un request body: { "name": "New Gadget", "price": 99.99, "category": "Electronics" }
-app.post('/products', simulateLatency, (req, res) => {
+router.post('/products', simulateLatency, (req, res) => {
   const { name, price, category } = req.body;
 
   if (!name || !price || !category) {
@@ -111,7 +111,7 @@ app.post('/products', simulateLatency, (req, res) => {
 
 // 5. PUT /products/:id (Actualizar un producto)
 //    Usa un request body: { "price": 120.50 }
-app.put('/products/:id', simulateLatency, (req, res) => {
+router.put('/products/:id', simulateLatency, (req, res) => {
   const productId = parseInt(req.params.id, 10);
   const productIndex = mockProducts.findIndex(p => p.id === productId);
 
@@ -134,7 +134,7 @@ app.put('/products/:id', simulateLatency, (req, res) => {
 });
 
 // 6. DELETE /products/:id (Eliminar un producto)
-app.delete('/products/:id', simulateLatency, (req, res) => {
+router.delete('/products/:id', simulateLatency, (req, res) => {
   const productId = parseInt(req.params.id, 10);
   const productIndex = mockProducts.findIndex(p => p.id === productId);
 
@@ -149,7 +149,7 @@ app.delete('/products/:id', simulateLatency, (req, res) => {
 });
 
 // 7. GET /api/health (Simulación de estado aleatorio)
-app.get('/api/health', (req, res) => {
+router.get('/api/health', (req, res) => {
   const statuses = [
     { code: 200, status: "OK", message: "All systems nominal." },
     { code: 200, status: "DEGRADED", message: "Experiencing high latency on database." },
@@ -165,7 +165,7 @@ app.get('/api/health', (req, res) => {
 
 // 8. GET /api/secure-data (Simulación de lectura de Headers)
 //    Prueba enviando un header: 'x-api-key: mysecretkey123'
-app.get('/api/secure-data', simulateLatency, (req, res) => {
+router.get('/api/secure-data', simulateLatency, (req, res) => {
   const apiKey = req.headers['x-api-key'];
 
   console.log(`[GET /api/secure-data] Attempting access with API key: ${apiKey}`);
@@ -186,18 +186,21 @@ app.get('/api/secure-data', simulateLatency, (req, res) => {
   });
 });
 
+// Montar el router en el path base /app_1
+app.use('/app_1', router);
+
 
 // Iniciar el servidor
 app.listen(PORT, () => {
   console.log(`Express server listening on port ${PORT}`);
   console.log('--- API Endpoints ---');
-  console.log(`GET    http://localhost:${PORT}/products`);
-  console.log(`GET    http://localhost:${PORT}/products?category=...&minPrice=...`);
-  console.log(`GET    http://localhost:${PORT}/products/1`);
-  console.log(`POST   http://localhost:${PORT}/products`);
-  console.log(`PUT    http://localhost:${PORT}/products/1`);
-  console.log(`DELETE http://localhost:${PORT}/products/1`);
-  console.log(`GET    http://localhost:${PORT}/api/health`);
-  console.log(`GET    http://localhost:${PORT}/api/secure-data (requires 'x-api-key' header)`);
+  console.log(`GET    http://localhost:${PORT}/app_1/products`);
+  console.log(`GET    http://localhost:${PORT}/app_1/products?category=...&minPrice=...`);
+  console.log(`GET    http://localhost:${PORT}/app_1/products/1`);
+  console.log(`POST   http://localhost:${PORT}/app_1/products`);
+  console.log(`PUT    http://localhost:${PORT}/app_1/products/1`);
+  console.log(`DELETE http://localhost:${PORT}/app_1/products/1`);
+  console.log(`GET    http://localhost:${PORT}/app_1/api/health`);
+  console.log(`GET    http://localhost:${PORT}/app_1/api/secure-data (requires 'x-api-key' header)`);
   console.log('---------------------');
 });

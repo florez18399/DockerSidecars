@@ -1,0 +1,28 @@
+version: '3.8'
+
+networks:
+  zone_net:
+    external: true
+    name: ${ZONE_NETWORK_NAME}
+  
+  hdfs-net:
+    external: true
+    name: hdfs-backbone
+
+services:
+  spark-processor:
+    build: .
+    container_name: ${ZONE_ID}-spark-processor
+    hostname: spark-processor
+    networks:
+      - zone_net
+      - hdfs-net
+    # 2. Monta la config
+    volumes:
+      - ../../hadoop-config:/opt/spark/conf
+      - ./hive-config/hive-site.xml:/opt/spark/conf/hive-site.xml:ro
+    # 3. Pasa la variable de entorno
+    environment:
+      - ZONA_ID=${ZONE_ID}
+    command: ["spark-submit", "--master", "local[*]", "/app/stream-writer.py"]
+  

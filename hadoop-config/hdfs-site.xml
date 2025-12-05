@@ -5,6 +5,21 @@
   </property>
 
   <property>
+      <name>dfs.heartbeat.interval</name>
+      <value>3</value>
+  </property>
+
+  <property>
+      <name>dfs.namenode.heartbeat.recheck-interval</name>
+      <value>15000</value>
+  </property>
+    
+  <property>
+      <name>dfs.client.block.write.replace-datanode-on-failure.policy</name>
+      <value>ALWAYS</value>
+  </property>
+
+  <property>
     <name>dfs.namenode.name.dir</name>
     <value>file:///data/namenode</value>
   </property>

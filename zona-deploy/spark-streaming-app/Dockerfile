@@ -1,3 +1,40 @@
+FROM maven:3.8.6-openjdk-11 AS builder
+
+# Creamos un pom.xml minimalista al vuelo
+WORKDIR /build
+RUN echo '<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"> \
+  <modelVersion>4.0.0</modelVersion> \
+  <groupId>org.example</groupId> \
+  <artifactId>hive-deps-downloader</artifactId> \
+  <version>1.0.0</version> \
+  <dependencies> \
+    \
+    <dependency> \
+        <groupId>org.apache.hive</groupId> \
+        <artifactId>hive-exec</artifactId> \
+        <version>3.1.3</version> \
+        <exclusions> \
+            <exclusion><groupId>org.apache.logging.log4j</groupId><artifactId>*</artifactId></exclusion> \
+            <exclusion><groupId>org.slf4j</groupId><artifactId>*</artifactId></exclusion> \
+        </exclusions> \
+    </dependency> \
+    <dependency> \
+        <groupId>org.apache.hive</groupId> \
+        <artifactId>hive-metastore</artifactId> \
+        <version>3.1.3</version> \
+    </dependency> \
+     \
+    <dependency> \
+        <groupId>org.postgresql</groupId> \
+        <artifactId>postgresql</artifactId> \
+        <version>42.7.3</version> \
+    </dependency> \
+  </dependencies> \
+</project>' > pom.xml
+
+# Ordenamos a Maven descargar todo en una carpeta
+RUN mvn dependency:copy-dependencies -DoutputDirectory=/build/hive-libs
+
 # ------------------------------------------------------------------
 # Imagen Custom de PySpark (Ubuntu 22.04 + Java 11 + Spark 3.2.1)
 # ------------------------------------------------------------------
@@ -44,6 +81,9 @@ RUN curl -fSL https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-
     # dependencias commons para kafka 
     curl -fSL https://repo1.maven.org/maven2/org/apache/commons/commons-pool2/2.6.2/commons-pool2-2.6.2.jar -o ${SPARK_HOME}/jars/commons-pool2.jar
 
+
+COPY --from=builder /build/hive-libs/* /opt/spark/hive-3.1-libs/
+    
 # Instalación de la librería PySpark
 RUN pip3 install pyspark==${SPARK_VERSION}
 

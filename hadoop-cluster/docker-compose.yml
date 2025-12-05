@@ -1,0 +1,33 @@
+version: '3.8'
+
+networks:
+  hdfs-net:
+    driver: bridge
+    name: hdfs-backbone
+
+volumes:
+  namenode-data:
+
+services:
+  namenode:
+    image: hadoop-base:3.2.1
+    container_name: namenode
+    hostname: namenode
+    networks:
+      - hdfs-net
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    volumes:
+      - namenode-data:/data/namenode
+      - ../hadoop-config:/etc/hadoop/custom
+    environment:
+      - HADOOP_CONF_DIR=/etc/hadoop/custom
+    command: >
+      bash -c "
+        /etc/init.d/ssh start &&
+        if [ ! -d /data/namenode/current ]; then
+          hdfs namenode -format -nonInteractive
+        fi &&
+        hdfs namenode
+      "
