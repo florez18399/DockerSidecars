@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  traffic-generator:
+    build: .
+    container_name: mock-traffic-generator
+    environment:
+      - GATEWAY_URL=http://main-api-gateway:81
+      - CONF_DIR=/confs
+      - REQUEST_INTERVAL=0.5
+    volumes:
+      - ../../main-gateway/confs:/confs:ro
+    networks:
+      - main_net
+    restart: unless-stopped
+
+networks:
+  main_net:
+    external: true
+    name: main_gateway_net

@@ -16,6 +16,34 @@ El flujo de datos a través del sistema es el siguiente:
     *   **Sincronizador de Metadatos**: Un script se ejecuta periódicamente para que Hive reconozca las nuevas particiones de datos escritas por Spark.
     *   **Trino (antes PrestoSQL)**: Un motor de consultas SQL distribuido que se conecta al Hive Metastore para permitir a los usuarios ejecutar consultas interactivas sobre los datos.
 
+## 🚀 Simulación de Comportamiento y Generación de Tráfico
+
+El proyecto incluye una capa de simulación avanzada para probar patrones de observabilidad bajo diversas condiciones.
+
+### Escenarios de Aplicación
+Las aplicaciones pueden desplegarse con modos de `SCENARIO` específicos (configurados mediante variables de entorno en `deploy-zone.sh`):
+- **NORMAL**: Rendimiento estándar (latencia de 100-300ms).
+- **DEGRADED**: Simulación de alta latencia (+3s por solicitud).
+- **CHAOS**: Alta tasa de fallos (50% de probabilidad de error 500).
+- **BURSTY**: Picos de latencia intermitentes (retrasos aleatorios de 5s).
+
+### Cliente de Tráfico Mock
+Un componente dockerizado en Python (`tests/mock-client`) que:
+1. **Auto-descubre** zonas activas escaneando las configuraciones de los gateways.
+2. **Simula Personas**:
+   - `user-stable`: Tráfico de navegación regular.
+   - `user-heavy`: Solicitudes de alta frecuencia.
+   - `user-malicious`: Activa endpoints de error y autenticación inválida.
+   - `user-scanner`: Prueba rutas inexistentes (generación de 404).
+3. **Trazabilidad de Extremo a Extremo**: Inyecta `X-CONSUMER-ID` para seguimiento en Trino/Grafana.
+
+Para iniciar/detener el tráfico:
+```bash
+cd tests/mock-client
+docker compose up -d  # Iniciar
+docker compose down   # Detener
+```
+
 ## Estructura del Proyecto
 
 El repositorio está organizado en los siguientes directorios principales:
@@ -28,7 +56,7 @@ El repositorio está organizado en los siguientes directorios principales:
     *   `deploy-zone.sh` y `destroy-zone.sh`: Scripts para crear y destruir una zona completa.
 *   `hadoop-cluster/`: Define el servicio HDFS NameNode.
 *   `trino-sql/`: Despliega el stack de consulta con Trino, Hive Metastore y el sincronizador de particiones.
-*   `sql/`: Contiene scripts SQL, como la creación de la tabla inicial en Hive.
+*   `tests/mock-client/`: Cliente generador de tráfico sintético.
 
 ## Prerrequisitos
 
@@ -37,112 +65,26 @@ El repositorio está organizado en los siguientes directorios principales:
 
 ## Cómo Empezar
 
-El despliegue está automatizado a través de scripts que gestionan "zonas". Una zona es un entorno de despliegue autocontenido.
+El despliegue está automatizado a través de scripts que gestionan "zonas".
 
-### Paso 1: Crear la Red Principal
+### Paso 1: Levantar Infraestructura Base
+Asegúrate de tener el `hadoop-cluster`, `main-gateway`, `redis-streaming` y `trino-sql` activos.
 
-Antes de desplegar cualquier componente, es necesario crear la red principal que permitirá la comunicación entre los distintos contenedores de la zona.
-
-```bash
-docker network create data-backbone
-```
-
-### Paso 2: Desplegar una Zona
-
-Para desplegar una zona completa (por ejemplo, `zone_1`) con `app1`, ejecuta el siguiente script. Este se encargará de levantar todos los servicios en el orden correcto.
+### Paso 2: Desplegar Zonas con Escenarios
+Puedes desplegar múltiples zonas pasando el nombre de la zona como argumento y configurando los escenarios de las apps mediante variables de entorno:
 
 ```bash
 cd zona-deploy/
-./deploy-zone.sh zone_1 app1 8081
-```
-
-Este comando despliega `app1` en una nueva zona llamada `zone_1`, exponiendo el servicio en el puerto `8081` del host.
-
-### Paso 3: Desplegar el NameNode de HDFS
-
-El NameNode de HDFS se gestiona de forma separada.
-
-```bash
-cd ../hadoop-cluster/
-docker-compose up -d
-```
-
-### Paso 4: Desplegar el Stack de Trino/Hive
-
-Finalmente, levanta la capa de consulta.
-
-```bash
-cd ../trino-sql/
-docker-compose up -d
-```
-
-## Uso del Pipeline
-
-### 1. Generar Datos de Trazas
-
-Envía solicitudes a la aplicación desplegada. Usando el ejemplo anterior, `app1` está en el puerto `8081`.
-
-```bash
-# Realiza una petición GET a la API de productos
-curl http://localhost:8081/app_1/products
-
-# Crea un nuevo producto
-curl -X POST http://localhost:8081/app_1/products \
-  -H "Content-Type: application/json" \
-  -d '{"name": "My New Product", "price": 19.99, "category": "Books"}'
-```
-
-Cada solicitud generará logs que son capturados y enviados a Kafka.
-
-### 2. Consultar los Datos con Trino
-
-Después de unos minutos, la aplicación Spark habrá procesado los datos. Puedes usar Trino para consultarlos.
-
-1.  Conéctate a Trino a través de su CLI o una herramienta de BI (DBeaver, Superset) en el puerto `8080`.
-2.  Ejecuta consultas SQL sobre la tabla.
-
-```sql
--- Verificar los últimos registros en la tabla de trazas
-SELECT *
-FROM hive.default.trazas_logs_v3
-LIMIT 10;
-
--- Contar el número de peticiones por método HTTP
-SELECT request_method, COUNT(*) as total
-FROM hive.default.trazas_logs_v3
-GROUP BY request_method
-ORDER BY total DESC;
+# Zona 1 estable
+APP1_SCENARIO=NORMAL APP2_SCENARIO=NORMAL ./deploy-zone.sh zone1
+# Zona 2 inestable
+APP1_SCENARIO=CHAOS APP2_SCENARIO=DEGRADED ./deploy-zone.sh zone2
 ```
 
 ## Detener el Entorno
 
-Para detener y limpiar todos los recursos, utiliza los scripts correspondientes.
-
-### Paso 1: Destruir la Zona
-
-Usa el script `destroy-zone.sh` para detener y eliminar todos los contenedores asociados a una zona.
-
+Para detener una zona específica:
 ```bash
 cd zona-deploy/
-./destroy-zone.sh zone_1
-```
-
-### Paso 2: Detener los Servicios Centrales
-
-Detén el NameNode y el stack de Trino/Hive.
-
-```bash
-cd ../hadoop-cluster/
-docker compose down
-
-cd ../trino-sql/
-docker compose down
-```
-
-### Paso 3: Eliminar la Red
-
-Finalmente, puedes eliminar la red principal si ya no la necesitas.
-
-```bash
-docker network rm data-backbone
+./destroy-zone.sh zone1
 ```

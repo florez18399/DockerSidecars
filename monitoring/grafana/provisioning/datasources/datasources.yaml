@@ -12,9 +12,10 @@ datasources:
       schema: default
     editable: true
 
-  - name: Redis-Zone1
+  - name: Redis-Global
     type: redis-datasource
-    uid: redis-zone1-uid
-    url: zone1-redis:6379
+    uid: redis-uid
+    url: global-redis:6379
+
     access: proxy
     editable: true

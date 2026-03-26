@@ -2,13 +2,22 @@
 set -e
 
 if [ -f .env ]; then
-  export $(cat .env | xargs)
+  # Cargar variables del .env
+  export $(grep -v '^#' .env | xargs)
 else
   echo "No se encontró archivo .env"
   exit 1
 fi
 
-echo "🧹 Iniciando destrucción de zona $ZONE_ID..."
+# El primer argumento sobreescribe la ZONE_ID del .env
+if [ ! -z "$1" ]; then
+  export ZONE_ID=$1
+  # Derivar ZONE_NETWORK_NAME del ZONE_ID (ej: zone1 -> zone_1_net)
+  Z_NUM=$(echo $ZONE_ID | tr -dc '0-9')
+  export ZONE_NETWORK_NAME="zone_${Z_NUM}_net"
+fi
+
+echo "🧹 Iniciando destrucción de zona $ZONE_ID (Red: $ZONE_NETWORK_NAME)..."
 
 # 0. Eliminar registro del Main Gateway
 echo "🗑️ Eliminando registro en el Gateway Principal..."
@@ -44,10 +53,9 @@ for app_dir in ./server-mesh/apps/*; do
     fi
 done
 
-# 4. Borrar Infra Kafka y Redis
-echo "Eliminando infraestructura Kafka y Redis..."
+# 4. Borrar Infra Kafka
+echo "Eliminando infraestructura Kafka..."
 docker compose -p "${ZONE_ID}-infra" -f streaming-kafka/docker-compose.yml down -v --remove-orphans || true
-docker compose -p "${ZONE_ID}-redis" -f redis-streaming/docker-compose.yml down -v --remove-orphans || true
 
 # 5. Borrar DataNode
 echo "Eliminando DataNode $ZONE_ID..."

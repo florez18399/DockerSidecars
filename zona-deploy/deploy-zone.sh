@@ -2,11 +2,22 @@
 set -e 
 
 if [ -f .env ]; then
-  export $(cat .env | xargs)
+  # Cargar variables del .env
+  export $(grep -v '^#' .env | xargs)
 else
   echo "❌ No se encontró archivo .env"
   exit 1
 fi
+
+# El primer argumento sobreescribe la ZONE_ID del .env
+if [ ! -z "$1" ]; then
+  export ZONE_ID=$1
+  # Derivar ZONE_NETWORK_NAME del ZONE_ID (ej: zone1 -> zone_1_net)
+  Z_NUM=$(echo $ZONE_ID | tr -dc '0-9')
+  export ZONE_NETWORK_NAME="zone_${Z_NUM}_net"
+fi
+
+echo "🚀 Desplegando zona $ZONE_ID (Red: $ZONE_NETWORK_NAME)..."
 
 # 1. Crear Red Base
 docker network create $ZONE_NETWORK_NAME 2>/dev/null || true
@@ -32,17 +43,20 @@ docker compose -f datanode/docker-compose.yml \
 
 Z_NUM=$(echo $ZONE_ID | tr -dc '0-9')
 export KAFKA_PORT_EXT=$((9090 + Z_NUM * 2))
-export REDIS_PORT_EXT=$((6370 + Z_NUM))
-echo "Desplegando Infraestructura para $ZONE_ID (Kafka: $KAFKA_PORT_EXT, Redis: $REDIS_PORT_EXT)"
+echo "Desplegando Infraestructura para $ZONE_ID (Kafka: $KAFKA_PORT_EXT)"
 
-echo "Levantando Infraestructura (Kafka & Redis)..."
+# Asegurar que Redis Global esté arriba (desde la raíz del proyecto)
+echo "Asegurando Redis Global..."
+(cd .. && docker compose -f redis-streaming/docker-compose.yml up -d)
+
+echo "Levantando Infraestructura (Kafka)..."
 docker compose -p "${ZONE_ID}-infra" -f streaming-kafka/docker-compose.yml up -d
-docker compose -p "${ZONE_ID}-redis" -f redis-streaming/docker-compose.yml up -d
-
 
 # 4. Creando malla de aplicaciones
 echo "🚀 Desplegando Aplicaciones y configurando Gateway..."
-CURRENT_PORT=$INITIAL_PORT
+Z_NUM=$(echo $ZONE_ID | tr -dc '0-9')
+# Offset por zona para evitar colisiones de puertos (ej: zone1 -> 18100, zone2 -> 18200)
+CURRENT_PORT=$((18000 + Z_NUM * 100))
 
 # Configurar host de Kafka para los sidecars (Fluent Bit)
 export KAFKA_BROKER_HOST="${ZONE_ID}-broker"
@@ -60,9 +74,14 @@ for app_dir in ./server-mesh/apps/*; do
     if [ -d "$app_dir" ]; then
         export APP_NAME=$(basename "$app_dir")
         export HOST_PORT=$CURRENT_PORT
-        
-        echo " -> App: $APP_NAME (Port: $HOST_PORT)"
-        
+
+        # Dinámicamente obtener el SCENARIO para esta app (ej: APP1_SCENARIO)
+        APP_UPPER=$(echo "$APP_NAME" | tr '[:lower:]' '[:upper:]')
+        VAR_NAME="${APP_UPPER}_SCENARIO"
+        export SCENARIO="${!VAR_NAME:-NORMAL}"
+
+        echo " -> App: $APP_NAME (Port: $HOST_PORT, Scenario: $SCENARIO)"
+
         docker compose -f server-mesh/docker-compose.yml \
             -p "${ZONE_ID}-${APP_NAME}" \
             up -d --build

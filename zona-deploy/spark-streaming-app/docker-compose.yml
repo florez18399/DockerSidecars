@@ -24,5 +24,6 @@ services:
     # 3. Pasa la variable de entorno
     environment:
       - ZONA_ID=${ZONE_ID}
+    restart: unless-stopped
     command: ["spark-submit", "--master", "local[*]", "/app/stream-writer.py"]
   

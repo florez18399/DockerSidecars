@@ -24,6 +24,7 @@ services:
       - ZONE_ID=${ZONE_ID}
       - APP_PATH=/${APP_NAME}
       - PORT=8080
+      - SCENARIO=${SCENARIO:-NORMAL}
     restart: unless-stopped
 
   envoy:

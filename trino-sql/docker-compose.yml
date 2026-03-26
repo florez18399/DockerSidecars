@@ -59,12 +59,69 @@ services:
       - trino-net
     ports:
       - "8080:8080"
+    environment:
+      - TRINO_NODE_ID=trino-coordinator
     volumes:
-      - ./trino-config:/etc/trino:ro
+      - ./trino-config/config.properties:/etc/trino/config.properties:ro
+      - ./trino-config/jvm.config:/etc/trino/jvm.config:ro
+      - ./trino-config/node.properties:/etc/trino/node.properties:ro
+      - ./trino-config/catalog:/etc/trino/catalog:ro
       - ../hadoop-config:/opt/hadoop-config:ro
-      - trino-data:/var/trino/data
+      - trino-coord-data:/var/trino/data
+    deploy:
+      resources:
+        limits:
+          memory: 2G
     depends_on:
       - hive-metastore
+
+  trino-worker-1:
+    image: trinodb/trino:448
+    container_name: trino-worker-1
+    hostname: trino-worker-1
+    user: "0:0"
+    networks:
+      - hdfs-net
+      - trino-net
+    environment:
+      - TRINO_NODE_ID=trino-worker-1
+    volumes:
+      - ./trino-config/config-worker.properties:/etc/trino/config.properties:ro
+      - ./trino-config/jvm-worker.config:/etc/trino/jvm.config:ro
+      - ./trino-config/node.properties:/etc/trino/node.properties:ro
+      - ./trino-config/catalog:/etc/trino/catalog:ro
+      - ../hadoop-config:/opt/hadoop-config:ro
+      - trino-worker1-data:/var/trino/data
+    deploy:
+      resources:
+        limits:
+          memory: 2.5G
+    depends_on:
+      - trino
+
+  trino-worker-2:
+    image: trinodb/trino:448
+    container_name: trino-worker-2
+    hostname: trino-worker-2
+    user: "0:0"
+    networks:
+      - hdfs-net
+      - trino-net
+    environment:
+      - TRINO_NODE_ID=trino-worker-2
+    volumes:
+      - ./trino-config/config-worker.properties:/etc/trino/config.properties:ro
+      - ./trino-config/jvm-worker.config:/etc/trino/jvm.config:ro
+      - ./trino-config/node.properties:/etc/trino/node.properties:ro
+      - ./trino-config/catalog:/etc/trino/catalog:ro
+      - ../hadoop-config:/opt/hadoop-config:ro
+      - trino-worker2-data:/var/trino/data
+    deploy:
+      resources:
+        limits:
+          memory: 2.5G
+    depends_on:
+      - trino
 
   # Sincronizador
   hive-sync-service:
@@ -83,5 +140,9 @@ services:
 volumes:
   metastore-pg-data:
     driver: local
-  trino-data:
+  trino-coord-data:
+    driver: local
+  trino-worker1-data:
+    driver: local
+  trino-worker2-data:
     driver: local

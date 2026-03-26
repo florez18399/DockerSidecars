@@ -1,0 +1,22 @@
+version: '3.8'
+
+networks:
+  hdfs-net:
+    external: true
+    name: hdfs-backbone
+
+services:
+  global-redis:
+    image: redis:7-alpine
+    container_name: global-redis
+    hostname: global-redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    networks:
+      - hdfs-net
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
